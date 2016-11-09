@@ -8,6 +8,8 @@ So that we don't report duplicate values, readings are only sent to datadog if t
 # Datadog
 I chose datadog because it has a great stat visualizing interface, can do alerting, and is free. 
 Set up an account, an api and app key, put the values into the ini file, and datadog will graph things for you
+Example:
+[[http://share.jermops.com/i3Jw]]
 
 # Installation
 
