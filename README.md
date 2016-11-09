@@ -1,5 +1,5 @@
 # Credit
-This is a python rewrite/rework of much of the DexcomShare portions of [share2nightscount](https://github.com/nightscout/share2nightscout-bridge), a dexcom reporting piece of the most excellent NightScout project. I've skipped all the NS integration as I'm not using NightScout, though it should be easy enough to reimplement, if you like. 
+This is a python rewrite/rework of much of the DexcomShare portion of [share2nightscount](https://github.com/nightscout/share2nightscout-bridge), a dexcom reporting piece of the most excellent NightScout project. I've skipped all the NS integration as I'm not using NightScout, though it should be easy enough to reimplement, if you like. 
 
 # Description
 (Paraphrased and updated from the share2nightscout description)
