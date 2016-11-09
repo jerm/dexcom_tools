@@ -23,6 +23,7 @@ dd_options = {
 }
 
 
+datadog_stat_name = Config.get("datadog","stat_name")
 DEXCOM_ACCOUNT_NAME = Config.get("dexcomshare","dexcom_share_login")
 DEXCOM_PASSWORD = Config.get("dexcomshare","dexcom_share_password")
 CHECK_INTERVAL = 60 * 2.5
@@ -143,7 +144,7 @@ def to_datadog(mgdl,reading_lag):
     """
     stats = dogThreadStats()
     stats.start()
-    stats.gauge('marygrace.bg', mgdl)
+    stats.gauge(datadog_stat_name, mgdl)
     print "Sent bg %d to Datadog" % mgdl
 
     #if reading_lag > LAST_READING_MAX_LAG:
