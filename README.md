@@ -12,6 +12,7 @@ Set up an account, an api and app key, put the values into the ini file, and dat
 # Installation
 
 clone the repo
+$ cd dexcom-tools
 
 $ pip install --user -r requirements.txt
 
@@ -23,7 +24,7 @@ change stat_name to something sensical, ie: jeremy.bg
 
 # Usage
 
-$ ./dexcom-tools.ini 
+$ python dexcom-tools.py
 
 # TODO
 
