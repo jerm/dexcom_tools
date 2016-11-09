@@ -15,6 +15,7 @@ Example:
 # Installation
 
 clone the repo
+
 $ cd dexcom-tools
 
 $ pip install --user -r requirements.txt
