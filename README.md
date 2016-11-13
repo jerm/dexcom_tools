@@ -1,8 +1,10 @@
-# dexcom-tools
-Tools for accessing from DEXCOM share and making it available in various ways.
+# Credit
+This is a python rewrite/rework of much of the DexcomShare portion of [share2nightscount](https://github.com/nightscout/share2nightscout-bridge), a dexcom reporting piece of the most excellent NightScout project. I've skipped all the NS integration as I'm not using NightScout, though it should be easy enough to reimplement, if you like. 
 
-Currently, the software will take the latest readings from dexcom share every 2.5 minutes.
-For each reading, it will tell you the latest bg reading, the trend, and how old the reading is
+# Description
+(Paraphrased and updated from the share2nightscout description)
+The program logs in to Dexcom Share as the data publisher. It re-uses the token every 2.5 minutes to fetch the latest glucose record. This information is then sent to the terminal and DataDog, making the data available to whomever the owner chooses. It will continue to re-use the same sessionID until it expires, at which point it should attempt to log in again. If it can log in again, it will continue to re-use the new token to fetch data.
+
 So that we don't report duplicate values, readings are only sent to datadog if the timestamp has advanced.
 
 # Datadog
@@ -15,6 +17,7 @@ Example:
 # Installation
 
 clone the repo
+
 $ cd dexcom-tools
 
 $ pip install --user -r requirements.txt
