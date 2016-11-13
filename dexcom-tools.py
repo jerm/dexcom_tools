@@ -218,7 +218,7 @@ def monitor_dexcom():
                 print "Fetch failed with thing", res.status_code
                 if fetchfails > (MAX_FETCHFAILS/2):
                     print "Trying to re-auth..."
-                    ops.sessionID = None
+                    opts.sessionID = None
                 else:
                     print "Trying again..."
                 time.sleep(FAIL_RETRY_DELAY_BASE**authfails)
