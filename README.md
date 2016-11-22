@@ -33,6 +33,8 @@ change stat_name to something sensical, ie: jeremy.bg
 $ python dexcom-tools.py
 
 # TODO
-Configurable outputs with something other the print
+Configurable outputs with something other than the print statements
+
 Portable desktop alerts
+
 slack/sms/etc.. alerts
