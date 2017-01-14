@@ -13,6 +13,7 @@ import urllib
 from datadog import api as dogapi
 from datadog import initialize as doginitialize
 from datadog import ThreadStats as dogThreadStats
+from requests.exceptions import ConnectionError
 
 Config = ConfigParser.ConfigParser()
 Config.read("dexcom-tools.ini")
@@ -145,6 +146,7 @@ def to_datadog(mgdl,reading_lag):
     stats = dogThreadStats()
     stats.start()
     stats.gauge(datadog_stat_name, mgdl)
+    stats.gauge("jermops.goo", mgdl)
     print "Sent bg %d to Datadog" % mgdl
 
     #if reading_lag > LAST_READING_MAX_LAG:
@@ -158,18 +160,22 @@ def report_glucose(opts, res):
     """ Basic output """
     epochtime =  int((datetime.datetime.utcnow() -
         datetime.datetime(1970,1,1)).total_seconds())
-    last_reading_time = int(re.search('\d+', res.json()[0]['ST']).group())/1000
-    reading_lag = epochtime - last_reading_time
-    trend = res.json()[0]['Trend']
-    mgdl = res.json()[0]['Value']
-    trend_english = DIRECTIONS.keys()[DIRECTIONS.values().index(trend)]
-    print "Last bg: ", mgdl, "  trending: ", trend_english, "  last reading at: ", reading_lag, "seconds ago"
-    if reading_lag > LAST_READING_MAX_LAG:
-        print "***WARN It has been ", int(reading_lag/60), " minutes since DEXCOM got a new measurement"
+    try:
+        last_reading_time = int(re.search('\d+', res.json()[0]['ST']).group())/1000
+        reading_lag = epochtime - last_reading_time
+        trend = res.json()[0]['Trend']
+        mgdl = res.json()[0]['Value']
+        trend_english = DIRECTIONS.keys()[DIRECTIONS.values().index(trend)]
+        print "Last bg: ", mgdl, "  trending: ", trend_english, "  last reading at: ", reading_lag, "seconds ago"
+        if reading_lag > LAST_READING_MAX_LAG:
+            print "***WARN It has been ", int(reading_lag/60), " minutes since DEXCOM got a new measurement"
 
-    if last_reading_time > opts.last_seen:
-        to_datadog(mgdl, reading_lag)
-        opts.last_seen = last_reading_time
+        if last_reading_time > opts.last_seen:
+            to_datadog(mgdl, reading_lag)
+            opts.last_seen = last_reading_time
+    except IndexError:
+        print "IndexError: return code:", res.status_code, "... response output below"
+        print res
 
 
 def monitor_dexcom():
@@ -203,26 +209,30 @@ def monitor_dexcom():
                         authfails += 1
         if runs == 0:
             print "First tune, fetching"
-        res = fetch(opts)
-        if res and res.status_code < 400:
-            fetchfails = 0
-            #import ipdb; ipdb.set_trace()
-            report_glucose(opts, res)
-            #import ipdb; ipdb.set_trace()
-            time.sleep(opts.interval)
-        else:
-            failures += 1
-            if fetchfails > MAX_FETCHFAILS:
-                raise FetchError(res.status_code, res)
+        try:
+            res = fetch(opts)
+            if res and res.status_code < 400:
+                fetchfails = 0
+                #import ipdb; ipdb.set_trace()
+                report_glucose(opts, res)
+                #import ipdb; ipdb.set_trace()
+                time.sleep(opts.interval)
             else:
-                print "Fetch failed with thing", res.status_code
-                if fetchfails > (MAX_FETCHFAILS/2):
-                    print "Trying to re-auth..."
-                    opts.sessionID = None
+                failures += 1
+                if fetchfails > MAX_FETCHFAILS:
+                    raise FetchError(res.status_code, res)
                 else:
-                    print "Trying again..."
-                time.sleep(FAIL_RETRY_DELAY_BASE**authfails)
-                fetchfails += 1
+                    print "Fetch failed with thing", res.status_code
+                    if fetchfails > (MAX_FETCHFAILS/2):
+                        print "Trying to re-auth..."
+                        opts.sessionID = None
+                    else:
+                        print "Trying again..."
+                    time.sleep(FAIL_RETRY_DELAY_BASE**authfails)
+                    fetchfails += 1
+        except ConnectionError:
+            print "Cnnection Error.. sleeping for 60 seconds and trying again"
+            sleep(60)
 
 if __name__ == '__main__':
     monitor_dexcom()
