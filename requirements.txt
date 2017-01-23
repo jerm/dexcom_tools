@@ -1,2 +1,4 @@
 requests
 datadog
+flask
+zappa

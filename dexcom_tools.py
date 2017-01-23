@@ -178,9 +178,7 @@ def to_datadog(mgdl,reading_lag):
         #tags = ['version:1', 'application:web']
         #dogapi.Event.create(title=title, text=text, tags=tags)
 
-
-def report_glucose(opts, res):
-    """ Basic output """
+def parse_dexcom_response(ops, res):
     epochtime =  int((datetime.datetime.utcnow() -
         datetime.datetime(1970,1,1)).total_seconds())
     try:
@@ -192,16 +190,21 @@ def report_glucose(opts, res):
         log.info("Last bg: {}  trending: {}  last reading at: {} seconds ago".format(mgdl,trend_english,reading_lag))
         if reading_lag > LAST_READING_MAX_LAG:
             log.warning("***WARN It has been {} minutes since DEXCOM got a new measurement".format(int(reading_lag/60)))
-
-        if last_reading_time > opts.last_seen:
-            to_datadog(mgdl, reading_lag)
-            opts.last_seen = last_reading_time
+        return {"bg": mgdl, "trend": trend, "trend_english": trend_english, "reading_lag": reading_lag, "last_reading_time": last_reading_time}
     except IndexError:
         log.error("IndexError: return code:{} ... response output below".format(res.status_code))
         log.error(res)
+        return None
 
 
-def monitor_dexcom():
+def report_glucose(opts, reading):
+    """ Basic output """
+    if reading['last_reading_time'] > opts.last_seen:
+        to_datadog(reading['bg'], reading['reading_lag'])
+        opts.last_seen = reading['last_reading_time']
+
+
+def monitor_dexcom(once=False):
     """ Main loop """
 
     doginitialize(**dd_options)
@@ -242,10 +245,14 @@ def monitor_dexcom():
             res = fetch(opts)
             if res and res.status_code < 400:
                 fetchfails = 0
-                #import ipdb; ipdb.set_trace()
-                report_glucose(opts, res)
-                #import ipdb; ipdb.set_trace()
-                time.sleep(opts.interval)
+                reading = parse_dexcom_response(opts, res)
+                if reading:
+                    if once == True:
+                        return reading
+                    else:
+                        report_glucose(opts, reading)
+                else:
+                    log.error("reading variable came back blank but nothing caught.. investigate")
             else:
                 failures += 1
                 if fetchfails > MAX_FETCHFAILS:
@@ -257,11 +264,16 @@ def monitor_dexcom():
                         opts.sessionID = None
                     else:
                         log.warning("Trying again...")
-                    time.sleep(FAIL_RETRY_DELAY_BASE**authfails)
+                    time.sleep((FAIL_RETRY_DELAY_BASE**authfails)-ops.interval)
                     fetchfails += 1
         except ConnectionError:
             log.warning("Cnnection Error.. sleeping for 60 seconds and trying again")
             sleep(60)
+        time.sleep(opts.interval)
+def query_dexcom():
+
+    reading = monitor_dexcom(once=True)
+    return reading
 
 if __name__ == '__main__':
     monitor_dexcom()
