@@ -23,7 +23,10 @@ dd_options = {
     'app_key': Config.get("datadog","dd_api_key")
 }
 
-
+try:
+    HEALTHCHECK_URL = Config.get("healthcheck","url")
+except:
+    HEALTHCHECK_UTL = None
 datadog_stat_name = Config.get("datadog","stat_name")
 DEXCOM_ACCOUNT_NAME = Config.get("dexcomshare","dexcom_share_login")
 DEXCOM_PASSWORD = Config.get("dexcomshare","dexcom_share_password")
@@ -191,6 +194,12 @@ def monitor_dexcom():
     fetchfails = 0
     failures = 0
     while True:
+        try:
+            if HEALTHCHECK_URL:
+                requests.get(HEALTHCHECK_URL)
+        except ConnectionError as e:
+            print "Error sendind heartbeat: {}".format(e)
+
         print "RUNNING", runs, "failures", failures
         runs += 1
         if not opts.sessionID:

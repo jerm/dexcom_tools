@@ -7,3 +7,5 @@ dd_api_key: datadogAPIrocks12345678901234567890
 dd_app_key: datadogAPProcks09876543210987654321
 stat_name: mycurrentdexcomstatus.bg
 
+#[healthcheck]
+#url: https://hchk.io/asdgsdfgsfdgsdf-sfdgsdfgsdfg-sdfgsfd
