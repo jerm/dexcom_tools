@@ -3,6 +3,7 @@
 import ConfigParser
 import datetime
 import json
+import logging
 import os
 import re
 import requests
@@ -17,6 +18,25 @@ from requests.exceptions import ConnectionError
 
 Config = ConfigParser.ConfigParser()
 Config.read("dexcom-tools.ini")
+
+# create logger
+log = logging.getLogger(__file__)
+log.setLevel(logging.DEBUG)
+
+# create file handler which logs even debug messages
+fh = logging.FileHandler('dexcom-tools.log')
+fh.setLevel(logging.INFO)
+
+# create console handler with a higher log level
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+
+# create formatter and add it to the handlers
+formatter = logging.Formatter('{"timestamp": "%(asctime)s", "progname": "%(name)s", "loglevel": "%(levelname)s", "message":, "%(message)s"}')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+log.addHandler(fh)
+log.addHandler(ch)
 
 dd_options = {
     'api_key': Config.get("datadog","dd_api_key"),
@@ -132,7 +152,7 @@ class AuthError(Error):
     def __init__(self, status_code, message):
         self.expression = status_code
         self.message = message
-        print message.__dict__
+        log.error(message.__dict__)
 
 class FetchError(Error):
     """Exception raised for errors in the date fetch.
@@ -141,7 +161,7 @@ class FetchError(Error):
     def __init__(self, status_code, message):
         self.expression = status_code
         self.message = message
-        print message.__dict__
+        log.error(message.__dict__)
 
 def to_datadog(mgdl,reading_lag):
     """ Send latest reading to datadog. Maybe create events on some critera
@@ -150,7 +170,7 @@ def to_datadog(mgdl,reading_lag):
     stats.start()
     stats.gauge(datadog_stat_name, mgdl)
     stats.gauge("jermops.goo", mgdl)
-    print "Sent bg %d to Datadog" % mgdl
+    log.info("Sent bg {} to Datadog".format(mgdl))
 
     #if reading_lag > LAST_READING_MAX_LAG:
         #title = "Something big happened!"
@@ -169,16 +189,16 @@ def report_glucose(opts, res):
         trend = res.json()[0]['Trend']
         mgdl = res.json()[0]['Value']
         trend_english = DIRECTIONS.keys()[DIRECTIONS.values().index(trend)]
-        print "Last bg: ", mgdl, "  trending: ", trend_english, "  last reading at: ", reading_lag, "seconds ago"
+        log.info("Last bg: {}  trending: {}  last reading at: {} seconds ago".format(mgdl,trend_english,reading_lag))
         if reading_lag > LAST_READING_MAX_LAG:
-            print "***WARN It has been ", int(reading_lag/60), " minutes since DEXCOM got a new measurement"
+            log.warning("***WARN It has been {} minutes since DEXCOM got a new measurement".format(int(reading_lag/60)))
 
         if last_reading_time > opts.last_seen:
             to_datadog(mgdl, reading_lag)
             opts.last_seen = last_reading_time
     except IndexError:
-        print "IndexError: return code:", res.status_code, "... response output below"
-        print res
+        log.error("IndexError: return code:{} ... response output below".format(res.status_code))
+        log.error(res)
 
 
 def monitor_dexcom():
@@ -198,9 +218,9 @@ def monitor_dexcom():
             if HEALTHCHECK_URL:
                 requests.get(HEALTHCHECK_URL)
         except ConnectionError as e:
-            print "Error sendind heartbeat: {}".format(e)
+            log.error("Error sending heartbeat: {}".format(e))
 
-        print "RUNNING", runs, "failures", failures
+        log.info("RUNNING {}, failures: {}".format(runs, failures))
         runs += 1
         if not opts.sessionID:
             authfails = 0
@@ -208,16 +228,16 @@ def monitor_dexcom():
                 res = authorize(opts)
                 if res.status_code == 200:
                     opts.sessionID = res.text.strip('"')
-                    print "Got auth token", opts.sessionID
+                    log.debug("Got auth token {}".format(opts.sessionID))
                 else:
                     if authfails > MAX_AUTHFAILS:
                         raise AuthError(res.status_code, res)
                     else:
-                        print "Auth failed with thing", res.status_code
+                        log.warning("Auth failed with thing {}".format(res.status_code))
                         time.sleep(AUTH_RETRY_DELAY_BASE**authfails)
                         authfails += 1
         if runs == 0:
-            print "First tune, fetching"
+            log.debug("First time, fetching")
         try:
             res = fetch(opts)
             if res and res.status_code < 400:
@@ -231,16 +251,16 @@ def monitor_dexcom():
                 if fetchfails > MAX_FETCHFAILS:
                     raise FetchError(res.status_code, res)
                 else:
-                    print "Fetch failed with thing", res.status_code
+                    log.warning("Fetch failed with thing: {}".format(res.status_code))
                     if fetchfails > (MAX_FETCHFAILS/2):
-                        print "Trying to re-auth..."
+                        log.warning("Trying to re-auth...")
                         opts.sessionID = None
                     else:
-                        print "Trying again..."
+                        log.warning("Trying again...")
                     time.sleep(FAIL_RETRY_DELAY_BASE**authfails)
                     fetchfails += 1
         except ConnectionError:
-            print "Cnnection Error.. sleeping for 60 seconds and trying again"
+            log.warning("Cnnection Error.. sleeping for 60 seconds and trying again")
             sleep(60)
 
 if __name__ == '__main__':
