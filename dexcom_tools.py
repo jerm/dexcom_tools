@@ -16,27 +16,17 @@ from datadog import initialize as doginitialize
 from datadog import ThreadStats as dogThreadStats
 from requests.exceptions import ConnectionError
 
-Config = ConfigParser.ConfigParser()
-Config.read("dexcom-tools.ini")
-
-# create logger
 log = logging.getLogger(__file__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.ERROR)
 
-# create file handler which logs even debug messages
-fh = logging.FileHandler('dexcom-tools.log')
-fh.setLevel(logging.INFO)
-
-# create console handler with a higher log level
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-
-# create formatter and add it to the handlers
 formatter = logging.Formatter('{"timestamp": "%(asctime)s", "progname": "%(name)s", "loglevel": "%(levelname)s", "message":, "%(message)s"}')
-fh.setFormatter(formatter)
+ch = logging.StreamHandler()
 ch.setFormatter(formatter)
-log.addHandler(fh)
+ch.setLevel(logging.DEBUG)
 log.addHandler(ch)
+
+Config = ConfigParser.ConfigParser()
+Config.read("dexcom_tools.ini")
 
 dd_options = {
     'api_key': Config.get("datadog","dd_api_key"),
@@ -271,11 +261,29 @@ def monitor_dexcom(once=False):
             sleep(60)
         time.sleep(opts.interval)
 def query_dexcom():
-
     reading = monitor_dexcom(once=True)
     return reading
 
 if __name__ == '__main__':
+    # create logger
+    log = logging.getLogger(__file__)
+    log.setLevel(logging.DEBUG)
+
+    # create file handler which logs even debug messages
+    fh = logging.FileHandler('dexcom_tools.log')
+    fh.setLevel(logging.INFO)
+
+    # create console handler with a higher log level
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    # create formatter and add it to the handlers
+    formatter = logging.Formatter('{"timestamp": "%(asctime)s", "progname": "%(name)s", "loglevel": "%(levelname)s", "message":, "%(message)s"}')
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+    log.addHandler(fh)
+    log.addHandler(ch)
+
     monitor_dexcom()
 
 
