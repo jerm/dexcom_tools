@@ -1,5 +1,5 @@
 # Credit
-This is a python rewrite/rework of much of the DexcomShare portion of [share2nightscount](https://github.com/nightscout/share2nightscout-bridge), a dexcom reporting piece of the most excellent NightScout project. I've skipped all the NS integration as I'm not using NightScout, though it should be easy enough to reimplement, if you like. 
+This started as a python rewrite/rework of much of the DexcomShare portion of [share2nightscount](https://github.com/nightscout/share2nightscout-bridge), a dexcom reporting piece of the most excellent NightScout project. I've skipped all the NS integration as I'm not using NightScout, though it should be easy enough to reimplement, if you like. 
 
 # Description
 (Paraphrased and updated from the share2nightscout description)
@@ -11,6 +11,12 @@ So that we don't report duplicate values, readings are only sent to datadog if t
 I chose datadog because it has a great stat visualizing interface, can do alerting, and is free. 
 Set up an account, an api and app key, put the values into the ini file, and datadog will graph things for you
 
+# Webapp
+In order to make this easily query-able from... other things... I've added
+webapp.py and webapp.ini.example to make the readings available via a
+"serverless" web endpoint using flask and zappa.io. Follow steps on zappa.io
+page to deploy.
+
 Example:
 ![example datadog graph](https://d3vv6lp55qjaqc.cloudfront.net/items/071D2b3x1n3x1Z3n1V2J/datadog_example_graph.png)
 
@@ -18,22 +24,22 @@ Example:
 
 clone the repo
 
-$ cd dexcom-tools
+$ cd dexcom_tools
 
 $ pip install --user -r requirements.txt
 
-$ cp dexcom-tools.ini.example dexcom-tools.ini
+$ cp dexcom_tools.ini.example dexcom_tools.ini
 
-# Edit dexcom-tools.ini
+# Edit dexcom_tools.ini
 Put in your dexcom share (and any other ) credentials
 change stat_name to something sensical, ie: jeremy.bg
 
 # Usage
 
-$ python dexcom-tools.py
+$ python dexcom_tools.py
 
 # TODO
-Configurable outputs with something other than the print statements
+Better docs for webapp/lamba deploy
 
 Portable desktop alerts
 
