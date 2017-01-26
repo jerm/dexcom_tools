@@ -38,6 +38,12 @@ change stat_name to something sensical, ie: jeremy.bg
 
 $ python dexcom_tools.py
 
+#Test your setup
+## Start the dev server
+./webapp.py
+## Send a sample query
+curl http://localhost:5000/dexcom/5l5l5l5l4k4k4j3h3h3h22j2 --data-binary @example-request.json
+
 # TODO
 Better docs for webapp/lamba deploy
 
