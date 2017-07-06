@@ -1,5 +1,5 @@
 [dexcomshare]
-dexcom_share_login: NyGreatUserName
+dexcom_share_login: MyGreatUserName
 dexcom_share_password: SuperSecretPassword
 
 [datadog]
