@@ -1,6 +1,7 @@
 [dexcomshare]
 dexcom_share_login: MyGreatUserName
 dexcom_share_password: SuperSecretPassword
+max_auth_fails: 1
 
 [datadog]
 dd_api_key: datadogAPIrocks12345678901234567890

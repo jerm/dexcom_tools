@@ -26,8 +26,9 @@ ch.setFormatter(formatter)
 ch.setLevel(logging.DEBUG)
 log.addHandler(ch)
 
-Config = ConfigParser.ConfigParser()
+Config = ConfigParser.SafeConfigParser()
 Config.read("dexcom_tools.ini")
+log.setLevel(Config.get("logging", 'log_level').upper())
 
 dd_options = {
     'api_key': Config.get("datadog", "dd_api_key"),
@@ -44,8 +45,9 @@ DEXCOM_PASSWORD = Config.get("dexcomshare", "dexcom_share_password")
 CHECK_INTERVAL = 60 * 2.5
 AUTH_RETRY_DELAY_BASE = 2
 FAIL_RETRY_DELAY_BASE = 2
-MAX_AUTHFAILS = 10
+MAX_AUTHFAILS = Config.get("dexcomshare", "max_auth_fails")
 MAX_FETCHFAILS = 10
+RETRY_DELAY = 60 # Seconds
 LAST_READING_MAX_LAG = 60 * 15
 
 last_date = 0
@@ -172,8 +174,10 @@ def to_datadog(mgdl, reading_lag):
     stats = dogThreadStats()
     stats.start()
     stats.gauge(datadog_stat_name, mgdl)
-    stats.gauge("jermops.goo", mgdl)
-    log.info("Sent bg {} to Datadog".format(mgdl))
+    stats.gauge("{}.lag".format(datadog_stat_name,), reading_lag)
+    log.debug("Sent bg {} to Datadog".format(mgdl))
+    stats.flush(time.time() + 10)
+    stats.stop()
 
     # if reading_lag > LAST_READING_MAX_LAG:
     #    title = "Something big happened!"
@@ -194,8 +198,7 @@ def parse_dexcom_response(ops, res):
         mgdl = res.json()[0]['Value']
         trend_english = DIRECTIONS.keys()[DIRECTIONS.values().index(trend)]
         log.info(
-                "Last bg: {}  trending: {}  last reading at: {} seconds" +
-                " ago".format(mgdl, trend_english, reading_lag))
+                "Last bg: {}  trending: {}  last reading at: {} seconds ago".format(mgdl, trend_english, reading_lag))
         if reading_lag > LAST_READING_MAX_LAG:
             log.warning(
                 "***WARN It has been {} minutes since DEXCOM got a" +
@@ -209,9 +212,9 @@ def parse_dexcom_response(ops, res):
                 }
     except IndexError:
         log.error(
-                "IndexError: return code:{} ... response output" +
+                "Caught IndexError: return code:{} ... response output" +
                 " below".format(res.status_code))
-        log.error(res)
+        log.error(res.__dict__)
         return None
 
 
@@ -240,22 +243,18 @@ def get_sessionID(opts):
 def monitor_dexcom(run_once=False):
     """ Main loop """
 
+    log.debug("pre-dog-init")
     doginitialize(**dd_options)
+    log.debug("post-dog-init")
     opts = Defaults
     opts.accountName = os.getenv("DEXCOM_ACCOUNT_NAME", DEXCOM_ACCOUNT_NAME)
     opts.password = os.getenv("DEXCOM_PASSWORD", DEXCOM_PASSWORD)
-    opts.interval = os.getenv("CHECK_INTERVAL", CHECK_INTERVAL)
+    opts.interval = float(os.getenv("CHECK_INTERVAL", CHECK_INTERVAL))
 
     runs = 0
     fetchfails = 0
     failures = 0
     while True:
-        try:
-            if HEALTHCHECK_URL:
-                requests.get(HEALTHCHECK_URL)
-        except ConnectionError as e:
-            log.error("Error sending heartbeat: {}".format(e))
-
         log.info("RUNNING {}, failures: {}".format(runs, failures))
         runs += 1
         if not opts.sessionID:
@@ -272,14 +271,26 @@ def monitor_dexcom(run_once=False):
                     else:
                         if reading['last_reading_time'] > opts.last_seen:
                             report_glucose(reading)
+                            opts.sessionID = "foo"
                             opts.last_seen = reading['last_reading_time']
+                            try:
+                                if HEALTHCHECK_URL:
+                                    requests.get(HEALTHCHECK_URL)
+                            except ConnectionError as e:
+                                log.error("Error sending healthcheck: {}".format(e))
+
                 else:
+                    opts.sessionID = None
                     log.error(
-                            "reading variable came back blank but nothing" +
-                            " caught.. investigate")
+                            "parse_dexcom_response returned None." +
+                            "investigate above logs")
+                    if run_once:
+                        return None
             else:
                 failures += 1
                 if run_once or fetchfails > MAX_FETCHFAILS:
+                    opts.sessionID = None
+                    log.warning("Saw an error from the dexcom api, code: {}.  details to follow".format(res.status_code))
                     raise FetchError(res.status_code, res)
                 else:
                     log.warning("Fetch failed on: {}".format(res.status_code))
@@ -289,23 +300,31 @@ def monitor_dexcom(run_once=False):
                     else:
                         log.warning("Trying again...")
                     time.sleep(
-                            (FAIL_RETRY_DELAY_BASE**authfails) -
-                            opts.interval)
+                            (FAIL_RETRY_DELAY_BASE**authfails))
+                            #opts.interval)
                     fetchfails += 1
         except ConnectionError:
+            opts.sessionID = None
             if run_once:
                 raise
             log.warning(
-                    "Cnnection Error.. sleeping for 60 seconds and" +
+                    "Cnnection Error.. sleeping for {} seconds and".format(RETRY_DELAY) +
                     " trying again")
-            time.sleep(60)
+            time.sleep(RETRY_DELAY)
+
         time.sleep(opts.interval)
 
 
 def query_dexcom(push_report=False):
     reading = monitor_dexcom(run_once=True)
-    if push_report:
+    if push_report and reading:
         report_glucose(reading)
+        try:
+            if HEALTHCHECK_URL:
+                requests.get(HEALTHCHECK_URL)
+                log.debug("Sent healthcheck")
+        except ConnectionError as e:
+            log.error("Error sending healthcheck: {}".format(e))
     return reading
 
 
